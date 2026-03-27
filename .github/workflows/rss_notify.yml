@@ -2,10 +2,8 @@ name: RSS 업데이트 이메일 알림
 
 on:
   schedule:
-    # 매일 오전 9시 (KST = UTC+9, 즉 UTC 00:00)에 실행
+    # 매일 오전 9시 KST (UTC 00:00) 실행
     - cron: "0 0 * * *"
-    # 추가로 매일 오후 6시 (KST, UTC 09:00)에도 실행
-    - cron: "0 9 * * *"
   workflow_dispatch:  # 수동 실행 허용
 
 jobs:
