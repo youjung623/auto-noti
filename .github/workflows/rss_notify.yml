@@ -1,0 +1,51 @@
+name: RSS 업데이트 이메일 알림
+
+on:
+  schedule:
+    # 매일 오전 9시 (KST = UTC+9, 즉 UTC 00:00)에 실행
+    - cron: "0 0 * * *"
+    # 추가로 매일 오후 6시 (KST, UTC 09:00)에도 실행
+    - cron: "0 9 * * *"
+  workflow_dispatch:  # 수동 실행 허용
+
+jobs:
+  check-rss:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # state.json 커밋을 위해 필요
+
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt
+
+      - name: RSS 확인 및 알림 발송
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+        run: python main.py
+
+      - name: 상태 파일 커밋 (변경된 경우)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet state.json 2>/dev/null; then
+            echo "state.json 변경 없음, 스킵"
+          else
+            git add state.json
+            git commit -m "chore: RSS 상태 업데이트 $(date +'%Y-%m-%d %H:%M KST')"
+            git push
+          fi
