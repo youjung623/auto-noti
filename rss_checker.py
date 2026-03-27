@@ -10,7 +10,8 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 
-import feedparser
+import xml.etree.ElementTree as ET
+
 import requests
 from bs4 import BeautifulSoup
 
@@ -73,45 +74,84 @@ def fetch_feed_items(feed_url: str) -> list[dict]:
         print(f"  [경고] 피드 로딩 실패 ({feed_url}): {e}")
         return []
 
-    feed = feedparser.parse(response.content)
+    return _parse_rss_xml(response.content)
+
+
+def _parse_rss_xml(content: bytes) -> list[dict]:
+    """RSS/Atom XML을 파싱하여 항목 목록을 반환합니다."""
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError as e:
+        print(f"  [경고] XML 파싱 실패: {e}")
+        return []
+
+    ns = {
+        "atom": "http://www.w3.org/2005/Atom",
+        "dc": "http://purl.org/dc/elements/1.1/",
+    }
 
     items = []
-    for entry in feed.entries:
-        item_id = _entry_id(entry)
-        pub_date = _parse_date(entry)
-        items.append(
-            {
-                "id": item_id,
-                "title": entry.get("title", "제목 없음"),
-                "link": entry.get("link", ""),
-                "summary": entry.get("summary", ""),
-                "published": pub_date,
-            }
-        )
+
+    # RSS 2.0 형식
+    for item in root.findall(".//item"):
+        title = (item.findtext("title") or "제목 없음").strip()
+        link = (item.findtext("link") or "").strip()
+        description = (item.findtext("description") or "").strip()
+        guid = (item.findtext("guid") or "").strip()
+        pub_date = (item.findtext("pubDate") or item.findtext("dc:date", namespaces=ns) or "").strip()
+
+        item_id = guid or _make_id(link, title)
+        published = _normalize_date(pub_date)
+
+        items.append({
+            "id": item_id,
+            "title": title,
+            "link": link,
+            "summary": description,
+            "published": published,
+        })
+
+    # Atom 형식
+    if not items:
+        for entry in root.findall("atom:entry", ns):
+            title = (entry.findtext("atom:title", namespaces=ns) or "제목 없음").strip()
+            link_el = entry.find("atom:link", ns)
+            link = link_el.get("href", "") if link_el is not None else ""
+            summary = (entry.findtext("atom:summary", namespaces=ns) or
+                       entry.findtext("atom:content", namespaces=ns) or "").strip()
+            entry_id = (entry.findtext("atom:id", namespaces=ns) or "").strip()
+            published = (entry.findtext("atom:published", namespaces=ns) or
+                         entry.findtext("atom:updated", namespaces=ns) or "").strip()
+
+            items.append({
+                "id": entry_id or _make_id(link, title),
+                "title": title,
+                "link": link,
+                "summary": summary,
+                "published": published[:19] if published else datetime.now().isoformat(),
+            })
+
     return items
 
 
-def _entry_id(entry) -> str:
-    """항목의 고유 ID를 생성합니다."""
-    if entry.get("id"):
-        return entry.id
-    raw = (entry.get("link", "") + entry.get("title", "")).encode("utf-8")
+def _make_id(link: str, title: str) -> str:
+    raw = (link + title).encode("utf-8")
     return hashlib.md5(raw).hexdigest()
 
 
-def _parse_date(entry) -> str:
-    """항목의 발행 날짜를 문자열로 반환합니다."""
-    if entry.get("published_parsed"):
+def _normalize_date(date_str: str) -> str:
+    """다양한 날짜 형식을 ISO 형식으로 변환합니다."""
+    if not date_str:
+        return datetime.now().isoformat()
+    # RFC 2822 형식 시도
+    from email.utils import parsedate
+    parsed = parsedate(date_str)
+    if parsed:
         try:
-            return datetime(*entry.published_parsed[:6]).isoformat()
+            return datetime(*parsed[:6]).isoformat()
         except Exception:
             pass
-    if entry.get("updated_parsed"):
-        try:
-            return datetime(*entry.updated_parsed[:6]).isoformat()
-        except Exception:
-            pass
-    return datetime.now().isoformat()
+    return date_str
 
 
 def load_state() -> dict:
