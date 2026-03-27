@@ -1,6 +1,9 @@
 # 환경 변수 (절대 커밋하지 마세요)
 .env
 
+# 로그 파일
+*.log
+
 # RSS 상태 파일은 GitHub Actions가 자동 관리
 # 로컬 개발 시에는 gitignore 해도 무방
 # state.json
