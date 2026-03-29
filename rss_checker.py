@@ -21,7 +21,7 @@ MAX_ITEM_AGE_DAYS = int(os.environ.get("MAX_ITEM_AGE_DAYS", "365"))
 RSS_FEEDS = [
     {
         "title": "인터넷쇼핑",
-        "url": "https://www.easylaw.go.kr/CSP/RssCsmRetrieve.laf?csmSeq=835&topMenu=serviceUl7",
+        "url": "https://www.easylaw.go.kr/CSP/RssOvDataRetrieve.laf?csmSeq=835",
         # 이미 인터넷쇼핑 전용 피드이므로 전자상거래 키워드 필터 생략
         "skip_ecommerce_filter": True,
     },
