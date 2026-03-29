@@ -7,13 +7,16 @@ import json
 import os
 import re
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import xml.etree.ElementTree as ET
 
 import requests
 
+
+# 이 일수보다 오래된 항목은 무시 (기본 90일)
+MAX_ITEM_AGE_DAYS = int(os.environ.get("MAX_ITEM_AGE_DAYS", "90"))
 
 RSS_FEEDS = [
     {
@@ -116,6 +119,16 @@ def _to_absolute_url(url: str, base: str = "https://www.easylaw.go.kr") -> str:
     return base + "/" + url
 
 
+def _is_recent(published: str, cutoff: datetime) -> bool:
+    """발행일이 cutoff 이후인지 확인합니다."""
+    try:
+        dt_str = published[:19]  # "YYYY-MM-DDTHH:MM:SS"
+        dt = datetime.fromisoformat(dt_str).replace(tzinfo=timezone.utc)
+        return dt >= cutoff
+    except (ValueError, TypeError):
+        return True  # 날짜 파싱 실패 시 통과시킴
+
+
 def _make_id(link: str, title: str) -> str:
     raw = (link + title).encode("utf-8")
     return hashlib.md5(raw).hexdigest()
@@ -180,17 +193,27 @@ def check_for_new_items() -> list[dict]:
         seen_ids = set(state.get(feed_url, []))
         new_seen_ids = set(seen_ids)
 
+        cutoff = datetime.now(timezone.utc) - timedelta(days=MAX_ITEM_AGE_DAYS)
+
         for item in items:
             item_id = item["id"]
-            if item_id not in seen_ids:
-                new_items.append(
-                    {
-                        "feed_title": feed_title,
-                        "feed_url": feed_url,
-                        **item,
-                    }
-                )
-                new_seen_ids.add(item_id)
+            if item_id in seen_ids:
+                continue
+
+            # 날짜 필터: MAX_ITEM_AGE_DAYS 이내 항목만 허용
+            published = item.get("published", "")
+            if published and not _is_recent(published, cutoff):
+                new_seen_ids.add(item_id)  # 오래된 항목은 조용히 seen 처리
+                continue
+
+            new_items.append(
+                {
+                    "feed_title": feed_title,
+                    "feed_url": feed_url,
+                    **item,
+                }
+            )
+            new_seen_ids.add(item_id)
 
         # 최대 500개 ID만 보관 (메모리 관리)
         state[feed_url] = list(new_seen_ids)[-500:]
