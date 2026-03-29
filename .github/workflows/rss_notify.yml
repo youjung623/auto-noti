@@ -2,8 +2,8 @@ name: RSS 업데이트 이메일 알림
 
 on:
   schedule:
-    # 매일 오전 9시 KST (UTC 00:00) 실행
-    - cron: "0 0 * * *"
+    # 매일 오전 8시 45분 KST (UTC 23:45) 실행 — GitHub Actions 지연 보정
+    - cron: "45 23 * * *"
   workflow_dispatch:  # 수동 실행 허용
 
 jobs:
