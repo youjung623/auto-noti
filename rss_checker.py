@@ -66,7 +66,7 @@ def _parse_rss_xml(content: bytes) -> list[dict]:
     # RSS 2.0 형식
     for item in root.findall(".//item"):
         title = (item.findtext("title") or "제목 없음").strip()
-        link = (item.findtext("link") or "").strip()
+        link = _to_absolute_url((item.findtext("link") or "").strip())
         description = (item.findtext("description") or "").strip()
         guid = (item.findtext("guid") or "").strip()
         pub_date = (item.findtext("pubDate") or item.findtext("dc:date", namespaces=ns) or "").strip()
@@ -87,7 +87,7 @@ def _parse_rss_xml(content: bytes) -> list[dict]:
         for entry in root.findall("atom:entry", ns):
             title = (entry.findtext("atom:title", namespaces=ns) or "제목 없음").strip()
             link_el = entry.find("atom:link", ns)
-            link = link_el.get("href", "") if link_el is not None else ""
+            link = _to_absolute_url(link_el.get("href", "") if link_el is not None else "")
             summary = (entry.findtext("atom:summary", namespaces=ns) or
                        entry.findtext("atom:content", namespaces=ns) or "").strip()
             entry_id = (entry.findtext("atom:id", namespaces=ns) or "").strip()
@@ -103,6 +103,17 @@ def _parse_rss_xml(content: bytes) -> list[dict]:
             })
 
     return items
+
+
+def _to_absolute_url(url: str, base: str = "https://www.easylaw.go.kr") -> str:
+    """상대 경로 URL을 절대 URL로 변환합니다."""
+    if not url:
+        return url
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+    if url.startswith("/"):
+        return base + url
+    return base + "/" + url
 
 
 def _make_id(link: str, title: str) -> str:
