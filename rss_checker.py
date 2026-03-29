@@ -13,49 +13,20 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 import requests
-from bs4 import BeautifulSoup
 
 
-RSS_LIST_URL = "https://www.easylaw.go.kr/CSP/RssRetrieveLst.laf"
+RSS_FEEDS = [
+    {
+        "title": "인터넷쇼핑",
+        "url": "https://www.easylaw.go.kr/CSP/CSP/RssOvRetrieve.laf?csmSeq=835&topMenu=serviceUl7",
+    },
+]
 STATE_FILE = Path("state.json")
 
 
 def fetch_rss_feed_urls() -> list[dict]:
-    """RSS 목록 페이지에서 개별 RSS 피드 URL 목록을 가져옵니다."""
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        ),
-        "Accept-Language": "ko-KR,ko;q=0.9",
-    }
-
-    try:
-        response = requests.get(RSS_LIST_URL, headers=headers, timeout=30)
-        response.raise_for_status()
-        response.encoding = response.apparent_encoding or "utf-8"
-    except requests.RequestException as e:
-        raise RuntimeError(f"RSS 목록 페이지 로딩 실패: {e}") from e
-
-    soup = BeautifulSoup(response.text, "html.parser")
-    feeds = []
-
-    # 페이지에서 RSS 링크 추출 (href에 rss 또는 .xml 포함하는 링크)
-    for link in soup.find_all("a", href=True):
-        href = link["href"]
-        if "rss" in href.lower() or ".xml" in href.lower() or "Rss" in href:
-            title = link.get_text(strip=True) or href
-            if not href.startswith("http"):
-                href = "https://www.easylaw.go.kr" + href
-            feeds.append({"title": title, "url": href})
-
-    # 링크에서 못 찾은 경우 일반적인 easylaw RSS URL 패턴도 시도
-    if not feeds:
-        # RSS 목록 페이지 자체가 RSS일 수도 있음
-        feeds.append({"title": "쉬운 생활법령 전체", "url": RSS_LIST_URL})
-
-    return feeds
+    """구독 중인 RSS 피드 목록을 반환합니다."""
+    return RSS_FEEDS
 
 
 def fetch_feed_items(feed_url: str) -> list[dict]:
