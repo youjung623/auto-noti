@@ -15,13 +15,15 @@ import xml.etree.ElementTree as ET
 import requests
 
 
-# 이 일수보다 오래된 항목은 무시 (기본 90일)
-MAX_ITEM_AGE_DAYS = int(os.environ.get("MAX_ITEM_AGE_DAYS", "90"))
+# 이 일수보다 오래된 항목은 무시 (기본 365일)
+MAX_ITEM_AGE_DAYS = int(os.environ.get("MAX_ITEM_AGE_DAYS", "365"))
 
 RSS_FEEDS = [
     {
         "title": "인터넷쇼핑",
         "url": "https://www.easylaw.go.kr/CSP/RssCsmRetrieve.laf?csmSeq=835&topMenu=serviceUl7",
+        # 이미 인터넷쇼핑 전용 피드이므로 전자상거래 키워드 필터 생략
+        "skip_ecommerce_filter": True,
     },
 ]
 STATE_FILE = Path("state.json")
@@ -184,45 +186,47 @@ def check_for_new_items() -> list[dict]:
 
     print(f"  발견된 피드 수: {len(feeds)}")
 
+    cutoff = datetime.now(timezone.utc) - timedelta(days=MAX_ITEM_AGE_DAYS)
+    items_to_filter = []   # 전자상거래 필터 적용 대상
+    items_no_filter = []   # 전용 피드라 필터 생략 대상
+
     for feed_info in feeds:
         feed_title = feed_info["title"]
         feed_url = feed_info["url"]
-        print(f"  피드 확인 중: {feed_title} ({feed_url})")
+        skip_filter = feed_info.get("skip_ecommerce_filter", False)
+        print(f"  피드 확인 중: {feed_title} ({'필터 생략' if skip_filter else '필터 적용'})")
 
         items = fetch_feed_items(feed_url)
         seen_ids = set(state.get(feed_url, []))
         new_seen_ids = set(seen_ids)
-
-        cutoff = datetime.now(timezone.utc) - timedelta(days=MAX_ITEM_AGE_DAYS)
 
         for item in items:
             item_id = item["id"]
             if item_id in seen_ids:
                 continue
 
-            # 날짜 필터: MAX_ITEM_AGE_DAYS 이내 항목만 허용
             published = item.get("published", "")
             if published and not _is_recent(published, cutoff):
-                new_seen_ids.add(item_id)  # 오래된 항목은 조용히 seen 처리
+                new_seen_ids.add(item_id)
                 continue
 
-            new_items.append(
-                {
-                    "feed_title": feed_title,
-                    "feed_url": feed_url,
-                    **item,
-                }
-            )
+            enriched = {"feed_title": feed_title, "feed_url": feed_url, **item}
+            if skip_filter:
+                items_no_filter.append(enriched)
+            else:
+                items_to_filter.append(enriched)
             new_seen_ids.add(item_id)
 
-        # 최대 500개 ID만 보관 (메모리 관리)
         state[feed_url] = list(new_seen_ids)[-500:]
 
     save_state(state)
 
-    # 전자상거래 관련 항목만 필터링 + 영향 상품군 태깅
-    from ecommerce_filter import filter_and_tag
-    new_items = filter_and_tag(new_items)
+    # 전용 피드 항목은 상품군 태깅만 적용, 일반 피드는 전자상거래 필터 + 태깅
+    from ecommerce_filter import filter_and_tag, identify_affected_products
+    filtered = filter_and_tag(items_to_filter)
+    for item in items_no_filter:
+        item["affected_products"] = identify_affected_products(item)
 
-    print(f"  신규 항목 수 (전자상거래 필터 후): {len(new_items)}")
+    new_items = items_no_filter + filtered
+    print(f"  신규 항목 수: {len(new_items)} (전용피드 {len(items_no_filter)}건 + 일반피드 {len(filtered)}건)")
     return new_items
