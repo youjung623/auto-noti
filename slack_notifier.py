@@ -97,13 +97,16 @@ def _build_blocks(new_items: list[dict]) -> list:
         if blocks[-1]["accessory"] is None:
             del blocks[-1]["accessory"]
 
+        products = item.get("affected_products", [])
+        product_text = ("  ·  🏷 " + "  ".join(products)) if products else ""
+
         blocks.append(
             {
                 "type": "context",
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": f"📁 {feed_title}  ·  🗓 {published}",
+                        "text": f"📁 {feed_title}  ·  🗓 {published}{product_text}",
                     }
                 ],
             }

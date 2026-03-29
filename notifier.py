@@ -30,6 +30,17 @@ def build_html_body(new_items: list[dict]) -> str:
         if len(summary) > 200:
             summary = summary[:200] + "..."
 
+        products = item.get("affected_products", [])
+        product_tags_html = ""
+        if products:
+            tags = "".join(
+                f'<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;'
+                f'background:#fff3e0;color:#e65100;border-radius:4px;font-size:11px;'
+                f'font-weight:bold;">🏷 {p}</span>'
+                for p in products
+            )
+            product_tags_html = f'<div style="margin-top:6px;">{tags}</div>'
+
         rows += f"""
         <tr>
           <td style="padding:12px;border-bottom:1px solid #eee;vertical-align:top;">
@@ -40,6 +51,7 @@ def build_html_body(new_items: list[dict]) -> str:
               </a>
             </div>
             <div style="font-size:13px;color:#555;">{summary}</div>
+            {product_tags_html}
           </td>
         </tr>
         """
@@ -111,6 +123,9 @@ def build_plain_body(new_items: list[dict]) -> str:
         if summary:
             wrapped = textwrap.fill(summary[:300], width=72)
             lines.append(f"내용:\n{wrapped}")
+        products = item.get("affected_products", [])
+        if products:
+            lines.append(f"영향 상품군: {', '.join(products)}")
         lines.append("-" * 60)
     return "\n".join(lines)
 

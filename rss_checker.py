@@ -214,5 +214,10 @@ def check_for_new_items() -> list[dict]:
         state[feed_url] = list(new_seen_ids)[-500:]
 
     save_state(state)
-    print(f"  신규 항목 수: {len(new_items)}")
+
+    # 전자상거래 관련 항목만 필터링 + 영향 상품군 태깅
+    from ecommerce_filter import filter_and_tag
+    new_items = filter_and_tag(new_items)
+
+    print(f"  신규 항목 수 (전자상거래 필터 후): {len(new_items)}")
     return new_items
