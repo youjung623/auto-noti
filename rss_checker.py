@@ -221,12 +221,29 @@ def check_for_new_items() -> list[dict]:
 
     save_state(state)
 
-    # 전용 피드 항목은 상품군 태깅만 적용, 일반 피드는 전자상거래 필터 + 태깅
-    from ecommerce_filter import filter_and_tag, identify_affected_products
+    # 전용 피드 항목은 EXCLUDE_KEYWORDS 필터 + 상품군 태깅, 일반 피드는 전자상거래 필터 + 태깅
+    from ecommerce_filter import (
+        filter_and_tag, identify_affected_products,
+        EXCLUDE_KEYWORDS, STRONG_KEYWORDS,
+    )
+
+    def _passes_exclude(item: dict) -> bool:
+        """명시적 제외 키워드가 없고, 강한 키워드가 하나라도 있어야 통과."""
+        text = (
+            (item.get("title") or "") + " " + (item.get("summary") or "")
+        ).lower()
+        if any(kw.lower() in text for kw in EXCLUDE_KEYWORDS):
+            return False
+        if any(kw.lower() in text for kw in STRONG_KEYWORDS):
+            return True
+        return True  # 전용 피드는 STRONG 키워드 없어도 제외 키워드만 없으면 통과
+
     filtered = filter_and_tag(items_to_filter)
-    for item in items_no_filter:
+    no_filter_passed = [item for item in items_no_filter if _passes_exclude(item)]
+    for item in no_filter_passed:
         item["affected_products"] = identify_affected_products(item)
 
-    new_items = items_no_filter + filtered
-    print(f"  신규 항목 수: {len(new_items)} (전용피드 {len(items_no_filter)}건 + 일반피드 {len(filtered)}건)")
+    new_items = no_filter_passed + filtered
+    excluded_count = len(items_no_filter) - len(no_filter_passed)
+    print(f"  신규 항목 수: {len(new_items)} (전용피드 {len(no_filter_passed)}건 [{excluded_count}건 제외] + 일반피드 {len(filtered)}건)")
     return new_items
