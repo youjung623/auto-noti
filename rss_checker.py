@@ -21,7 +21,7 @@ MAX_ITEM_AGE_DAYS = int(os.environ.get("MAX_ITEM_AGE_DAYS", "90"))
 RSS_FEEDS = [
     {
         "title": "인터넷쇼핑",
-        "url": "https://www.easylaw.go.kr/CSP/CSP/RssOvRetrieve.laf?csmSeq=835&topMenu=serviceUl7",
+        "url": "https://www.easylaw.go.kr/CSP/RssCsmRetrieve.laf?csmSeq=835&topMenu=serviceUl7",
     },
 ]
 STATE_FILE = Path("state.json")
