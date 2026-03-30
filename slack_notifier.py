@@ -76,10 +76,7 @@ def _build_blocks(new_items: list[dict]) -> list:
             summary = summary[:150] + "..."
 
         title_text = f"*<{link}|{title}>*" if link else f"*{title}*"
-        ai_summary = item.get("ai_summary", "")
         body_text = f"{title_text}\n{summary}"
-        if ai_summary:
-            body_text += f"\n\n*AI 핵심 요약*\n{ai_summary}"
 
         blocks.append(
             {

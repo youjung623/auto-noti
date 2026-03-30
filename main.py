@@ -34,14 +34,6 @@ def main() -> int:
 
     print(f"[알림] 신규 항목 {len(new_items)}건 발견")
 
-    # 링크 URL 크롤링 + AI 요약
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        print("[요약] 법령 본문 크롤링 및 AI 요약 시작...")
-        from summarizer import enrich_items_with_summary
-        new_items = enrich_items_with_summary(new_items)
-    else:
-        print("  → ANTHROPIC_API_KEY 미설정, AI 요약 건너뜀")
-
     has_error = False
 
     # ── 이메일 발송 ──────────────────────────────────────
