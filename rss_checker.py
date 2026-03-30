@@ -51,83 +51,49 @@ def fetch_feed_items(feed_url: str) -> list[dict]:
     return _parse_rss_xml(response.content)
 
 
-def _fix_xml(content: bytes) -> bytes:
-    """XML에서 잘못된 & 문자 등을 수정합니다."""
-    import re
-    text = content.decode("utf-8", errors="replace")
-    # CDATA 블록 밖의 이스케이프되지 않은 & 를 &amp; 로 치환
-    # 유효한 엔티티(&amp; &lt; &gt; &quot; &apos; &#숫자; &#x헥사;)는 유지
-    def fix_ampersand(m):
-        s = m.group(0)
-        # CDATA 구간은 그대로
-        if s.startswith("<![CDATA["):
-            return s
-        # 유효 엔티티 참조는 그대로
-        s = re.sub(r'&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)', '&amp;', s)
-        return s
-    # CDATA 블록을 보호하면서 나머지 구간만 치환
-    result = re.sub(r'<!\[CDATA\[.*?\]\]>|[^<]+', fix_ampersand, text, flags=re.DOTALL)
-    return result.encode("utf-8")
+def _extract_cdata_or_text(tag: str, block: str) -> str:
+    """태그 안의 CDATA 또는 텍스트를 추출합니다."""
+    m = re.search(
+        rf'<{tag}[^>]*>\s*(?:<!\[CDATA\[(.*?)\]\]>|(.*?))\s*</{tag}>',
+        block, re.DOTALL | re.IGNORECASE,
+    )
+    if not m:
+        return ""
+    return (m.group(1) or m.group(2) or "").strip()
 
 
 def _parse_rss_xml(content: bytes) -> list[dict]:
-    """RSS/Atom XML을 파싱하여 항목 목록을 반환합니다."""
-    try:
-        root = ET.fromstring(content)
-    except ET.ParseError as e:
-        print(f"  [경고] XML 파싱 실패 (복구 시도 중): {e}")
-        try:
-            root = ET.fromstring(_fix_xml(content))
-            print("  [정보] XML 복구 성공")
-        except ET.ParseError as e2:
-            print(f"  [경고] XML 복구 실패: {e2}")
-            return []
+    """RSS XML을 정규식으로 파싱합니다 (불량 XML에도 동작)."""
+    text = content.decode("utf-8", errors="replace")
 
-    ns = {
-        "atom": "http://www.w3.org/2005/Atom",
-        "dc": "http://purl.org/dc/elements/1.1/",
-    }
+    # <item>...</item> 블록 추출
+    raw_items = re.findall(r'<item>(.*?)</item>', text, re.DOTALL)
+
+    if not raw_items:
+        print("  [경고] RSS 항목을 찾을 수 없습니다 (item 태그 없음)")
+        return []
 
     items = []
+    for block in raw_items:
+        title = _extract_cdata_or_text("title", block) or "제목 없음"
+        link  = _to_absolute_url(_extract_cdata_or_text("link", block))
+        description = _extract_cdata_or_text("description", block)
+        guid  = _extract_cdata_or_text("guid", block)
+        pub_date = (
+            _extract_cdata_or_text("pubDate", block)
+            or _extract_cdata_or_text("dc:date", block)
+        )
 
-    # RSS 2.0 형식
-    for item in root.findall(".//item"):
-        title = (item.findtext("title") or "제목 없음").strip()
-        link = _to_absolute_url((item.findtext("link") or "").strip())
-        description = (item.findtext("description") or "").strip()
-        guid = (item.findtext("guid") or "").strip()
-        pub_date = (item.findtext("pubDate") or item.findtext("dc:date", namespaces=ns) or "").strip()
-
-        item_id = guid or _make_id(link, title)
+        item_id   = guid or _make_id(link, title)
         published = _normalize_date(pub_date)
 
         items.append({
-            "id": item_id,
-            "title": title,
-            "link": link,
-            "summary": description,
+            "id":        item_id,
+            "title":     title,
+            "link":      link,
+            "summary":   description,
             "published": published,
         })
-
-    # Atom 형식
-    if not items:
-        for entry in root.findall("atom:entry", ns):
-            title = (entry.findtext("atom:title", namespaces=ns) or "제목 없음").strip()
-            link_el = entry.find("atom:link", ns)
-            link = _to_absolute_url(link_el.get("href", "") if link_el is not None else "")
-            summary = (entry.findtext("atom:summary", namespaces=ns) or
-                       entry.findtext("atom:content", namespaces=ns) or "").strip()
-            entry_id = (entry.findtext("atom:id", namespaces=ns) or "").strip()
-            published = (entry.findtext("atom:published", namespaces=ns) or
-                         entry.findtext("atom:updated", namespaces=ns) or "").strip()
-
-            items.append({
-                "id": entry_id or _make_id(link, title),
-                "title": title,
-                "link": link,
-                "summary": summary,
-                "published": published[:19] if published else datetime.now().isoformat(),
-            })
 
     return items
 
