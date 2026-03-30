@@ -4,11 +4,25 @@
 """
 
 import os
+import re
 import smtplib
 import textwrap
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime
+
+
+def _strip_html(text: str) -> str:
+    """HTML 태그와 엔티티를 제거하고 순수 텍스트만 반환합니다."""
+    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r'&nbsp;', ' ', text)
+    text = re.sub(r'&amp;', '&', text)
+    text = re.sub(r'&lt;', '<', text)
+    text = re.sub(r'&gt;', '>', text)
+    text = re.sub(r'&quot;', '"', text)
+    text = re.sub(r'&#\d+;', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
 
 def _get_required_env(key: str) -> str:
@@ -26,7 +40,7 @@ def build_html_body(new_items: list[dict]) -> str:
         link = item.get("link", "#")
         feed_title = item.get("feed_title", "")
         published = item.get("published", "")[:10]
-        summary = item.get("summary", "")
+        summary = _strip_html(item.get("summary", ""))
         if len(summary) > 200:
             summary = summary[:200] + "..."
 
@@ -137,7 +151,7 @@ def build_plain_body(new_items: list[dict]) -> str:
         published = item.get("published", "")[:10]
         if published:
             lines.append(f"날짜: {published}")
-        summary = item.get("summary", "")
+        summary = _strip_html(item.get("summary", ""))
         if summary:
             wrapped = textwrap.fill(summary[:300], width=72)
             lines.append(f"내용:\n{wrapped}")
