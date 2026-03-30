@@ -224,16 +224,22 @@ def check_for_new_items() -> list[dict]:
         print(f"  피드 확인 중: {feed_title} ({'필터 생략' if skip_filter else '필터 적용'})")
 
         items = fetch_feed_items(feed_url)
+        print(f"    RSS에서 가져온 항목 수: {len(items)}건")
         seen_ids = set(state.get(feed_url, []))
+        print(f"    기존에 본 항목 수: {len(seen_ids)}건")
         new_seen_ids = set(seen_ids)
 
+        skipped_seen = 0
+        skipped_old = 0
         for item in items:
             item_id = item["id"]
             if item_id in seen_ids:
+                skipped_seen += 1
                 continue
 
             published = item.get("published", "")
             if published and not _is_recent(published, cutoff):
+                skipped_old += 1
                 new_seen_ids.add(item_id)
                 continue
 
@@ -243,6 +249,8 @@ def check_for_new_items() -> list[dict]:
             else:
                 items_to_filter.append(enriched)
             new_seen_ids.add(item_id)
+
+        print(f"    중복 제외: {skipped_seen}건, 날짜 제외: {skipped_old}건")
 
         state[feed_url] = list(new_seen_ids)[-500:]
 
