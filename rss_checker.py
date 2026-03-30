@@ -19,9 +19,7 @@ import requests
 MAX_ITEM_AGE_DAYS = int(os.environ.get("MAX_ITEM_AGE_DAYS", "0"))
 
 RSS_FEEDS = [
-    {"title": "생활법령 공지사항", "url": "https://www.easylaw.go.kr/CSP/RssNtcRetrieve.laf?topMenu=serviceUl7"},
-    {"title": "생활법령 새소식",   "url": "https://www.easylaw.go.kr/CSP/RssNewRetrieve.laf?topMenu=serviceUl7"},
-    {"title": "생활법령 업데이트", "url": "https://www.easylaw.go.kr/CSP/RssCsmRetrieve.laf?topMenu=serviceUl7"},
+    {"title": "생활법령 새소식", "url": "https://www.easylaw.go.kr/CSP/RssNewRetrieve.laf?topMenu=serviceUl7"},
 ]
 STATE_FILE = Path("state.json")
 
@@ -222,8 +220,12 @@ def check_for_new_items() -> list[dict]:
     save_state(state)
 
     all_items = items_to_filter + items_no_filter
-    for item in all_items:
+    filtered = [
+        item for item in all_items
+        if "생활법령" in (item.get("title") or "")
+    ]
+    for item in filtered:
         item["affected_products"] = []
 
-    print(f"  신규 항목 수: {len(all_items)}건")
-    return all_items
+    print(f"  신규 항목 수: {len(filtered)}건 (전체 {len(all_items)}건 중 '생활법령' 포함)")
+    return filtered
