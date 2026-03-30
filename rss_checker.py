@@ -19,10 +19,9 @@ import requests
 MAX_ITEM_AGE_DAYS = int(os.environ.get("MAX_ITEM_AGE_DAYS", "0"))
 
 RSS_FEEDS = [
-    {
-        "title": "생활법령 최근업데이트",
-        "url": "https://www.easylaw.go.kr/CSP/RssRetrieveLst.laf",
-    },
+    {"title": "생활법령 공지사항", "url": "https://www.easylaw.go.kr/CSP/RssNtcRetrieve.laf?topMenu=serviceUl7"},
+    {"title": "생활법령 새소식",   "url": "https://www.easylaw.go.kr/CSP/RssNewRetrieve.laf?topMenu=serviceUl7"},
+    {"title": "생활법령 업데이트", "url": "https://www.easylaw.go.kr/CSP/RssCsmRetrieve.laf?topMenu=serviceUl7"},
 ]
 STATE_FILE = Path("state.json")
 
