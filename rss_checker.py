@@ -80,6 +80,7 @@ def _parse_rss_xml(content: bytes) -> list[dict]:
             _extract_cdata_or_text("pubDate", block)
             or _extract_cdata_or_text("dc:date", block)
         )
+        category = _extract_cdata_or_text("category", block)
 
         item_id   = guid or _make_id(link, title)
         published = _normalize_date(pub_date)
@@ -90,6 +91,7 @@ def _parse_rss_xml(content: bytes) -> list[dict]:
             "link":      link,
             "summary":   description,
             "published": published,
+            "category":  category,
         })
 
     return items
@@ -222,10 +224,10 @@ def check_for_new_items() -> list[dict]:
     all_items = items_to_filter + items_no_filter
     filtered = [
         item for item in all_items
-        if "생활법령" in (item.get("title") or "")
+        if (item.get("category") or "").strip() == "생활법령"
     ]
     for item in filtered:
         item["affected_products"] = []
 
-    print(f"  신규 항목 수: {len(filtered)}건 (전체 {len(all_items)}건 중 '생활법령' 포함)")
+    print(f"  신규 항목 수: {len(filtered)}건 (전체 {len(all_items)}건 중 category='생활법령')")
     return filtered
