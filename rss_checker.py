@@ -15,8 +15,8 @@ import xml.etree.ElementTree as ET
 import requests
 
 
-# 이 일수보다 오래된 항목은 무시 (기본 365일)
-MAX_ITEM_AGE_DAYS = int(os.environ.get("MAX_ITEM_AGE_DAYS", "365"))
+# 이 일수보다 오래된 항목은 무시 (0 = 제한 없음)
+MAX_ITEM_AGE_DAYS = int(os.environ.get("MAX_ITEM_AGE_DAYS", "0"))
 
 RSS_FEEDS = [
     {
@@ -184,7 +184,12 @@ def check_for_new_items() -> list[dict]:
 
     print(f"  발견된 피드 수: {len(feeds)}")
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=MAX_ITEM_AGE_DAYS)
+    # MAX_ITEM_AGE_DAYS=0 이면 기간 제한 없음
+    cutoff = (
+        datetime(1970, 1, 1, tzinfo=timezone.utc)
+        if MAX_ITEM_AGE_DAYS == 0
+        else datetime.now(timezone.utc) - timedelta(days=MAX_ITEM_AGE_DAYS)
+    )
     items_to_filter = []   # 전자상거래 필터 적용 대상
     items_no_filter = []   # 전용 피드라 필터 생략 대상
 
