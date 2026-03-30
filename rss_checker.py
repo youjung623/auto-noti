@@ -160,9 +160,6 @@ def check_for_new_items() -> list[dict]:
     RSS 피드를 확인하고 신규 항목 목록을 반환합니다.
     각 항목: {"feed_title", "title", "link", "summary", "published"}
     """
-    state = load_state()
-    new_items = []
-
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] RSS 확인 시작...")
 
     try:
@@ -173,14 +170,8 @@ def check_for_new_items() -> list[dict]:
 
     print(f"  발견된 피드 수: {len(feeds)}")
 
-    # MAX_ITEM_AGE_DAYS=0 이면 기간 제한 없음
-    cutoff = (
-        datetime(1970, 1, 1, tzinfo=timezone.utc)
-        if MAX_ITEM_AGE_DAYS == 0
-        else datetime.now(timezone.utc) - timedelta(days=MAX_ITEM_AGE_DAYS)
-    )
-    items_to_filter = []   # 전자상거래 필터 적용 대상
-    items_no_filter = []   # 전용 피드라 필터 생략 대상
+    items_to_filter = []
+    items_no_filter = []
 
     for feed_info in feeds:
         feed_title = feed_info["title"]
@@ -190,36 +181,13 @@ def check_for_new_items() -> list[dict]:
 
         items = fetch_feed_items(feed_url)
         print(f"    RSS에서 가져온 항목 수: {len(items)}건")
-        seen_ids = set(state.get(feed_url, []))
-        print(f"    기존에 본 항목 수: {len(seen_ids)}건")
-        new_seen_ids = set(seen_ids)
 
-        skipped_seen = 0
-        skipped_old = 0
         for item in items:
-            item_id = item["id"]
-            if item_id in seen_ids:
-                skipped_seen += 1
-                continue
-
-            published = item.get("published", "")
-            if published and not _is_recent(published, cutoff):
-                skipped_old += 1
-                new_seen_ids.add(item_id)
-                continue
-
             enriched = {"feed_title": feed_title, "feed_url": feed_url, **item}
             if skip_filter:
                 items_no_filter.append(enriched)
             else:
                 items_to_filter.append(enriched)
-            new_seen_ids.add(item_id)
-
-        print(f"    중복 제외: {skipped_seen}건, 날짜 제외: {skipped_old}건")
-
-        state[feed_url] = list(new_seen_ids)[-500:]
-
-    save_state(state)
 
     all_items = items_to_filter + items_no_filter
     filtered = [
