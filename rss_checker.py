@@ -51,13 +51,37 @@ def fetch_feed_items(feed_url: str) -> list[dict]:
     return _parse_rss_xml(response.content)
 
 
+def _fix_xml(content: bytes) -> bytes:
+    """XML에서 잘못된 & 문자 등을 수정합니다."""
+    import re
+    text = content.decode("utf-8", errors="replace")
+    # CDATA 블록 밖의 이스케이프되지 않은 & 를 &amp; 로 치환
+    # 유효한 엔티티(&amp; &lt; &gt; &quot; &apos; &#숫자; &#x헥사;)는 유지
+    def fix_ampersand(m):
+        s = m.group(0)
+        # CDATA 구간은 그대로
+        if s.startswith("<![CDATA["):
+            return s
+        # 유효 엔티티 참조는 그대로
+        s = re.sub(r'&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)', '&amp;', s)
+        return s
+    # CDATA 블록을 보호하면서 나머지 구간만 치환
+    result = re.sub(r'<!\[CDATA\[.*?\]\]>|[^<]+', fix_ampersand, text, flags=re.DOTALL)
+    return result.encode("utf-8")
+
+
 def _parse_rss_xml(content: bytes) -> list[dict]:
     """RSS/Atom XML을 파싱하여 항목 목록을 반환합니다."""
     try:
         root = ET.fromstring(content)
     except ET.ParseError as e:
-        print(f"  [경고] XML 파싱 실패: {e}")
-        return []
+        print(f"  [경고] XML 파싱 실패 (복구 시도 중): {e}")
+        try:
+            root = ET.fromstring(_fix_xml(content))
+            print("  [정보] XML 복구 성공")
+        except ET.ParseError as e2:
+            print(f"  [경고] XML 복구 실패: {e2}")
+            return []
 
     ns = {
         "atom": "http://www.w3.org/2005/Atom",
