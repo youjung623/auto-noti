@@ -222,11 +222,12 @@ def check_for_new_items() -> list[dict]:
 
     save_state(state)
 
-    # 필터 없이 모든 항목 반환
-    all_items = items_to_filter + items_no_filter
-    for item in all_items:
-        item["affected_products"] = []
+    # 전자상거래 필터 적용 + 상품군 태깅
+    from ecommerce_filter import filter_and_tag, identify_affected_products
+    filtered = filter_and_tag(items_to_filter)
+    for item in items_no_filter:
+        item["affected_products"] = identify_affected_products(item)
 
-    new_items = all_items
-    print(f"  신규 항목 수: {len(new_items)}건")
+    new_items = items_no_filter + filtered
+    print(f"  신규 항목 수: {len(new_items)}건 (필터 통과: {len(filtered)}건)")
     return new_items
