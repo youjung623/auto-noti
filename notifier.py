@@ -55,23 +55,6 @@ def build_html_body(new_items: list[dict]) -> str:
             )
             product_tags_html = f'<div style="margin-top:6px;">{tags}</div>'
 
-        ai_summary = item.get("ai_summary", "")
-        ai_summary_html = ""
-        if ai_summary:
-            lines = "".join(
-                f'<div style="margin:3px 0;">{"&bull;" if line.startswith("•") else ""} '
-                f'{line.lstrip("•").strip()}</div>'
-                for line in ai_summary.splitlines() if line.strip()
-            )
-            ai_summary_html = f"""
-            <div style="margin-top:10px;padding:10px 12px;background:#f0f7ff;
-                        border-left:3px solid #1a5fad;border-radius:4px;">
-              <div style="font-size:11px;font-weight:bold;color:#1a5fad;margin-bottom:6px;">
-                ✦ AI 핵심 요약
-              </div>
-              <div style="font-size:13px;color:#333;line-height:1.7;">{lines}</div>
-            </div>"""
-
         rows += f"""
         <tr>
           <td style="padding:12px;border-bottom:1px solid #eee;vertical-align:top;">
@@ -82,7 +65,6 @@ def build_html_body(new_items: list[dict]) -> str:
               </a>
             </div>
             <div style="font-size:13px;color:#555;">{summary}</div>
-            {ai_summary_html}
             {product_tags_html}
           </td>
         </tr>
@@ -155,9 +137,6 @@ def build_plain_body(new_items: list[dict]) -> str:
         if summary:
             wrapped = textwrap.fill(summary[:300], width=72)
             lines.append(f"내용:\n{wrapped}")
-        ai_summary = item.get("ai_summary", "")
-        if ai_summary:
-            lines.append(f"[AI 핵심 요약]\n{ai_summary}")
         products = item.get("affected_products", [])
         if products:
             lines.append(f"영향 상품군: {', '.join(products)}")
