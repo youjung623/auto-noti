@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  # ── 쉬운 생활법령 RSS 알림 앱 ─────────────────────────
+  auto-noti:
+    build: .
+    container_name: auto-noti
+    image: auto-noti:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - noti-data:/app/data
+    command: ["python", "scheduler.py", "--time", "09:00"]
+
+  # ── Ouroboros: Docker 컨테이너 자동 업데이트 ──────────
+  # 출처: https://github.com/pyouroboros/ouroboros
+  ouroboros:
+    container_name: ouroboros
+    image: pyouroboros/ouroboros
+    restart: unless-stopped
+    environment:
+      - CLEANUP=true        # 업데이트 후 이전 이미지 자동 삭제
+      - INTERVAL=300        # 5분마다 업데이트 확인
+      - LOG_LEVEL=info
+      - SELF_UPDATE=true    # ouroboros 자신도 자동 업데이트
+      - TZ=Asia/Seoul
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  noti-data:
